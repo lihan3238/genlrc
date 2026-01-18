@@ -32,6 +32,9 @@ def main():
     if not os.path.exists(input_path):
         parser.error(f"input not found: {input_path}")
 
+    if args.offline and args.online:
+        parser.error("--offline and --online are mutually exclusive")
+
     if args.offline:
         mode = "offline"
     elif args.online:
@@ -45,7 +48,7 @@ def main():
         try:
             import openai  # noqa: F401
         except ModuleNotFoundError:
-            parser.error("--online requires dependency 'openai'. Install with: pip install openai")
+            parser.error("--online requires extra 'online'. Install with: pip install \"lrcgen[online]\"")
 
         if not OPENAI_API_KEY:
             parser.error(

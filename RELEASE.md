@@ -71,6 +71,7 @@ Notes:
 - TestPyPI is a separate site/account: https://test.pypi.org
 - TestPyPI tokens are different from PyPI tokens.
 - Do not commit tokens (avoid storing them in repo files).
+- Installing from TestPyPI and then from PyPI does not "conflict" at the same time (you can only have one installed version), but it can be confusing which index/version you currently have. Recommended: use a fresh virtualenv for the TestPyPI smoke test.
 
 1) Create a TestPyPI API token
 - TestPyPI → Account settings → API tokens → Add API token
@@ -91,7 +92,14 @@ If Twine still prompts `Enter your API token`, it usually means it did not read 
 - `python -m twine upload --config-file ~/.pypirc --repository testpypi dist/* --verbose`
 
 4) Install from TestPyPI to verify
+
+Recommended (fresh venv):
+- `python -m venv .venv-testpypi`
+- `source .venv-testpypi/bin/activate`  (WSL/macOS/Linux) or `.\.venv-testpypi\Scripts\Activate.ps1` (PowerShell)
 - `python -m pip install -U -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple lrcgen`
+
+If you installed from TestPyPI in your main environment and want to switch back to PyPI:
+- `python -m pip install -U --force-reinstall -i https://pypi.org/simple lrcgen`
 
 ## Notes
 

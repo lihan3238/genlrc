@@ -7,6 +7,19 @@ AI-powered LRC generator using Whisper + optional LLM correction.
 pip install lrcgen
 ```
 
+Optional extras:
+
+```bash
+# enable online LLM correction
+pip install "lrcgen[online]"
+
+# enable OpenCC (Traditional→Simplified conversion)
+pip install "lrcgen[opencc]"
+
+# enable both
+pip install "lrcgen[full]"
+```
+
 ## Requirements
 
 - Offline transcription uses Whisper models (first run may download model files).

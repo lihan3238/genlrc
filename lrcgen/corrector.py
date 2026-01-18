@@ -135,7 +135,7 @@ async def llm_fix(lines: list[str], *, require: bool = False) -> list[str]:
     """
     if not OpenAI:
         if require:
-            raise RuntimeError("missing dependency 'openai'. Install with: pip install openai")
+            raise RuntimeError("missing extra 'online'. Install with: pip install \"lrcgen[online]\"")
         return lines
 
     if not client:

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.3
+
+- Makes `openai` / OpenCC optional via extras: `lrcgen[online]`, `lrcgen[opencc]`, `lrcgen[full]`.
+- Improves CLI validation: `--offline` and `--online` are now mutually exclusive.
+- Fixes CI on Python 3.8/3.10 by using `tomli` fallback for reading `pyproject.toml`.
+
 ## 0.1.2
 
 - Adds a stable library API (`lrcgen.api`) with sync wrappers.
