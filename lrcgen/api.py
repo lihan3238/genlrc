@@ -18,6 +18,9 @@ class GenerateResult:
     line_count: int
     used_lyrics: bool = False
     lyrics_matched: int = 0
+    lyrics_effective_min_score: Optional[float] = None
+    lyrics_target_coverage: Optional[float] = None
+    lyrics_coverage: Optional[float] = None
 
 
 async def generate_lrc(
@@ -26,6 +29,9 @@ async def generate_lrc(
     *,
     mode: str = "auto",
     lyrics_text: Optional[str] = None,
+    lyrics_min_score: float = 0.50,
+    lyrics_allow_reuse_score: float = 0.88,
+    lyrics_target_coverage: Optional[float] = 0.90,
     recognizer: Optional["WhisperRecognizer"] = None,
     model_name: str = "medium",
     language: str = "zh",
@@ -53,13 +59,28 @@ async def generate_lrc(
 
     used_lyrics = False
     lyrics_matched = 0
+    lyrics_effective_min_score: Optional[float] = None
+    lyrics_target: Optional[float] = lyrics_target_coverage
+    lyrics_coverage: Optional[float] = None
 
     if lyrics_text:
         from .lyrics_aligner import align_transcript_lines
 
-        lines, stats = align_transcript_lines(lines, lyrics_text)
+        if lyrics_target is not None and lyrics_target <= 0:
+            lyrics_target = None
+
+        lines, stats = align_transcript_lines(
+            lines,
+            lyrics_text,
+            min_score=lyrics_min_score,
+            allow_reuse_score=lyrics_allow_reuse_score,
+            target_coverage=lyrics_target,
+        )
         used_lyrics = True
         lyrics_matched = stats.matched
+        lyrics_effective_min_score = stats.effective_min_score
+        lyrics_target = stats.target_coverage
+        lyrics_coverage = stats.coverage
 
     used_llm = False
     if used_lyrics:
@@ -97,6 +118,9 @@ async def generate_lrc(
         used_llm=used_llm,
         used_lyrics=used_lyrics,
         lyrics_matched=lyrics_matched,
+        lyrics_effective_min_score=lyrics_effective_min_score,
+        lyrics_target_coverage=lyrics_target,
+        lyrics_coverage=lyrics_coverage,
         line_count=len(lines),
     )
 

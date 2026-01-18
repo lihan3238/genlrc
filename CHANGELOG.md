@@ -1,9 +1,17 @@
 # Changelog
 
+## 0.2.0
+
+- Tunes lyrics-guided mode defaults: `--lyrics-min-score` now defaults to 0.50 and `--lyrics-target-coverage` defaults to 0.90.
+- `--lyrics-target-coverage 0` disables the auto-relax behavior.
+- Improves lyrics-mode logging: reports effective threshold and coverage.
+- Exposes lyrics alignment stats on `GenerateResult` (`lyrics_effective_min_score`, `lyrics_target_coverage`, `lyrics_coverage`).
+
 ## 0.1.4
 
 - Adds lyrics-guided generation: pass full lyrics and the generator will pick/cut each line from the canonical lyrics instead of relying on LLM correction.
 - Adds CLI flags `--lyrics-file/--lyrics` (single-file mode).
+- Adds GPU selection flags for transcription: `--device auto|cpu|cuda` and `--cuda-device`.
 
 ## 0.1.3
 

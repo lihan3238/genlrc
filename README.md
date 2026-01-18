@@ -37,11 +37,23 @@ lrcgen input/ output/ --online
 lrcgen --audio input/song.mp3 --output out.lrc --offline
 
 # choose whisper model/language
-lrcgen --audio input/song.mp3 --output out.lrc --offline --model small --language zh
+lrcgen --audio input/song.mp3 --output out.lrc --offline --model large-v3 --language zh
+
+# force GPU / pick CUDA device
+lrcgen --audio input/song.mp3 --output out.lrc --offline --device cuda --cuda-device 0
 
 # lyrics-guided generation (use your full lyrics as the "source of truth")
 # lyrics can be out-of-order; txt or lrc both work
 lrcgen --audio input/song.mp3 --output out.lrc --offline --lyrics-file input/lyrics.txt
+
+# tune lyrics matching (example: aim for >=90% lines replaced by canonical lyrics)
+lrcgen --audio input/song.mp3 --output out.lrc --offline --lyrics-file input/lyrics.txt --lyrics-target-coverage 0.90
+
+# by default, target coverage is 0.90; disable auto-relax by setting 0
+lrcgen --audio input/song.mp3 --output out.lrc --offline --lyrics-file input/lyrics.txt --lyrics-target-coverage 0
+
+# tweak strictness (default min score is 0.50)
+lrcgen --audio input/song.mp3 --output out.lrc --offline --lyrics-file input/lyrics.txt --lyrics-min-score 0.60
 
 # module entrypoint (same as lrcgen command)
 python -m lrcgen --audio input/song.mp3 --output out.lrc --offline

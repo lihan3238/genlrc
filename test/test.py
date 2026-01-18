@@ -103,6 +103,23 @@ class TestLyricsAligner(unittest.TestCase):
         self.assertEqual(aligned, ["第二句"])
         self.assertEqual(stats.matched, 1)
 
+    def test_target_coverage_can_relax_threshold(self):
+        from lrcgen.lyrics_aligner import align_transcript_lines
+
+        transcript = ["hello world"]
+        lyrics = "hello world\n"
+        # With an unrealistically strict min_score, we would normally fail.
+        aligned, stats = align_transcript_lines(
+            transcript,
+            lyrics,
+            min_score=1.0,
+            target_coverage=1.0,
+            min_score_floor=0.5,
+            step=0.2,
+        )
+        self.assertEqual(aligned, ["hello world"])
+        self.assertEqual(stats.matched, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

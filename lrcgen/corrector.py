@@ -5,6 +5,7 @@ import asyncio
 import sys
 import os
 from difflib import SequenceMatcher
+from typing import Optional
 
 try:
     from openai import OpenAI
@@ -92,7 +93,7 @@ def _guardrail_merge_with_stats(
 _LINE_RE = re.compile(r"^\s*(\d+)\s*[\.|:：\)]\s*(.*)$")
 
 
-def _parse_numbered_lines(text: str, n: int) -> list[str] | None:
+def _parse_numbered_lines(text: str, n: int) -> Optional[list[str]]:
     """Parse lines in format like '1: ...' .. 'n: ...' (order can vary)."""
 
     mapping: dict[int, str] = {}

@@ -19,7 +19,33 @@ def main():
     parser.add_argument("--output", dest="out", help="输出文件或目录")
     parser.add_argument("--offline", action="store_true", help="完全离线")
     parser.add_argument("--online", action="store_true", help="强制联网纠错")
-    parser.add_argument("--model", default="medium", help="Whisper model (e.g. tiny/base/small/medium/large)")
+    parser.add_argument(
+        "--model",
+        default="large-v3",
+        help=(
+            "Whisper model name. Common choices: tiny/base/small/medium/large; many installs also support "
+            "turbo and large-v3/large-v3-turbo, plus English-only variants like tiny.en/base.en/small.en/medium.en. "
+            "Larger models are usually more accurate but slower and use more memory. "
+            "Use --list-models to see what your installed whisper supports."
+        ),
+    )
+    parser.add_argument(
+        "--list-models",
+        action="store_true",
+        help="Print available Whisper model names from your installed whisper package and exit.",
+    )
+    parser.add_argument(
+        "--device",
+        choices=["auto", "cpu", "cuda"],
+        default="auto",
+        help="ASR device. auto=use CUDA if available; cpu=force CPU; cuda=force GPU.",
+    )
+    parser.add_argument(
+        "--cuda-device",
+        type=int,
+        default=0,
+        help="CUDA device index when --device=cuda (default: 0).",
+    )
     parser.add_argument("--language", default="zh", help="Whisper language code (default: zh)")
     parser.add_argument(
         "--lyrics-file",
@@ -29,7 +55,55 @@ def main():
         "--lyrics",
         help="直接传入完整歌词文本（不方便写文件时使用）。",
     )
+    parser.add_argument(
+        "--lyrics-min-score",
+        type=float,
+        default=0.50,
+        help="歌词匹配相似度阈值（0~1），越高越严格，默认 0.50",
+    )
+    parser.add_argument(
+        "--lyrics-target-coverage",
+        type=float,
+        default=0.90,
+        help="目标匹配覆盖率（0~1，例如 0.90；设为 0 可关闭）。设置后会自动逐步降低阈值以尽量达到目标（有下限保护）。",
+    )
+    parser.add_argument(
+        "--lyrics-allow-reuse-score",
+        type=float,
+        default=0.88,
+        help="允许复用同一句歌词的相似度阈值（0~1），默认 0.88",
+    )
     args = parser.parse_args()
+
+    if args.list_models:
+        try:
+            import whisper
+
+            for name in sorted(whisper.available_models()):
+                print(name)
+        except ModuleNotFoundError:
+            parser.error("missing dependency 'openai-whisper'. Install with: pip install openai-whisper")
+        return
+
+    # Resolve device setting for Whisper
+    device = None
+    if args.device == "auto":
+        device = None
+    elif args.device == "cpu":
+        device = "cpu"
+    else:
+        # args.device == "cuda"
+        try:
+            import torch
+
+            if not torch.cuda.is_available():
+                parser.error("--device=cuda requested but torch.cuda.is_available() is False")
+        except ModuleNotFoundError:
+            parser.error("--device=cuda requested but dependency 'torch' is missing")
+
+        if args.cuda_device < 0:
+            parser.error("--cuda-device must be >= 0")
+        device = f"cuda:{args.cuda_device}"
 
     input_path = args.audio or args.input
     output_path = args.out or args.output
@@ -45,6 +119,17 @@ def main():
 
     if args.lyrics and args.lyrics_file:
         parser.error("--lyrics and --lyrics-file are mutually exclusive")
+
+    if not (0.0 <= args.lyrics_min_score <= 1.0):
+        parser.error("--lyrics-min-score must be between 0 and 1")
+    if args.lyrics_target_coverage is not None and not (0.0 <= args.lyrics_target_coverage <= 1.0):
+        parser.error("--lyrics-target-coverage must be between 0 and 1")
+    if not (0.0 <= args.lyrics_allow_reuse_score <= 1.0):
+        parser.error("--lyrics-allow-reuse-score must be between 0 and 1")
+
+    lyrics_target_coverage = args.lyrics_target_coverage
+    if lyrics_target_coverage is not None and lyrics_target_coverage <= 0:
+        lyrics_target_coverage = None
 
     if args.offline:
         mode = "offline"
@@ -86,7 +171,7 @@ def main():
             )
         raise
 
-    recognizer = WhisperRecognizer(model_name=args.model, language=args.language)
+    recognizer = WhisperRecognizer(model_name=args.model, language=args.language, device=device)
 
     from .api import generate_lrc, generate_lrc_batch
 
@@ -141,13 +226,23 @@ def main():
             out_path,
             mode=mode,
             lyrics_text=lyrics_text,
+            lyrics_min_score=args.lyrics_min_score,
+            lyrics_allow_reuse_score=args.lyrics_allow_reuse_score,
+            lyrics_target_coverage=lyrics_target_coverage,
             recognizer=recognizer,
             model_name=args.model,
             language=args.language,
         )
         if getattr(r, "used_lyrics", False):
+            eff = getattr(r, "lyrics_effective_min_score", None)
+            if eff is None:
+                eff = args.lyrics_min_score
+            cov = getattr(r, "lyrics_coverage", None)
+            cov_s = "" if cov is None else f", coverage={cov:.0%}"
+            target = getattr(r, "lyrics_target_coverage", None)
+            target_s = "" if target is None else f", target={target:.2f}"
             print(
-                f"[lrcgen] lyrics aligned: {getattr(r, 'lyrics_matched', 0)}/{r.line_count}",
+                f"[lrcgen] lyrics aligned: {getattr(r, 'lyrics_matched', 0)}/{r.line_count} (min_score={args.lyrics_min_score:.2f}, effective_min_score={eff:.2f}{target_s}{cov_s})",
                 file=sys.stderr,
             )
         if r.used_llm:
