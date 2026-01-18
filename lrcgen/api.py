@@ -16,6 +16,8 @@ class GenerateResult:
     out_path: str
     used_llm: bool
     line_count: int
+    used_lyrics: bool = False
+    lyrics_matched: int = 0
 
 
 async def generate_lrc(
@@ -23,6 +25,7 @@ async def generate_lrc(
     out_path: str,
     *,
     mode: str = "auto",
+    lyrics_text: Optional[str] = None,
     recognizer: Optional["WhisperRecognizer"] = None,
     model_name: str = "medium",
     language: str = "zh",
@@ -48,8 +51,22 @@ async def generate_lrc(
 
     times, lines = recognizer.transcribe(audio_path)
 
+    used_lyrics = False
+    lyrics_matched = 0
+
+    if lyrics_text:
+        from .lyrics_aligner import align_transcript_lines
+
+        lines, stats = align_transcript_lines(lines, lyrics_text)
+        used_lyrics = True
+        lyrics_matched = stats.matched
+
     used_llm = False
-    if mode == "online":
+    if used_lyrics:
+        # Lyrics-guided generation is deterministic and typically better than LLM correction.
+        # When lyrics_text is provided, we skip LLM correction even if mode=online.
+        used_llm = False
+    elif mode == "online":
         used_llm = True
         from .corrector import llm_fix
 
@@ -78,6 +95,8 @@ async def generate_lrc(
         audio_path=audio_path,
         out_path=out_path,
         used_llm=used_llm,
+        used_lyrics=used_lyrics,
+        lyrics_matched=lyrics_matched,
         line_count=len(lines),
     )
 
@@ -87,6 +106,7 @@ async def generate_lrc_batch(
     output_dir: str,
     *,
     mode: str = "auto",
+    lyrics_text: Optional[str] = None,
     recognizer: Optional["WhisperRecognizer"] = None,
     model_name: str = "medium",
     language: str = "zh",
@@ -95,6 +115,9 @@ async def generate_lrc_batch(
 
     if mode not in {"offline", "online", "auto"}:
         raise ValueError(f"invalid mode: {mode}")
+
+    if lyrics_text:
+        raise ValueError("lyrics_text is only supported for single-file generation")
 
     os.makedirs(output_dir, exist_ok=True)
     if recognizer is None:
@@ -119,6 +142,7 @@ async def generate_lrc_batch(
                 in_path,
                 out_path,
                 mode=mode,
+                lyrics_text=None,
                 recognizer=recognizer,
                 model_name=model_name,
                 language=language,

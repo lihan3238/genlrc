@@ -39,6 +39,10 @@ lrcgen --audio input/song.mp3 --output out.lrc --offline
 # choose whisper model/language
 lrcgen --audio input/song.mp3 --output out.lrc --offline --model small --language zh
 
+# lyrics-guided generation (use your full lyrics as the "source of truth")
+# lyrics can be out-of-order; txt or lrc both work
+lrcgen --audio input/song.mp3 --output out.lrc --offline --lyrics-file input/lyrics.txt
+
 # module entrypoint (same as lrcgen command)
 python -m lrcgen --audio input/song.mp3 --output out.lrc --offline
 
@@ -76,6 +80,7 @@ genlrc/
 		api.py             # stable library API (sync + async)
 		whisperer.py       # Whisper transcription wrapper
 		corrector.py       # optional LLM correction + guardrails
+		lyrics_aligner.py  # align transcript lines to user-provided full lyrics
 		utils.py           # time formatting + basic text cleaning
 		config.py          # env/.env config (OPENAI_*, etc.)
 		input/             # optional local test inputs (not packaged)

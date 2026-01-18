@@ -72,5 +72,37 @@ class TestCorrectorInternals(unittest.TestCase):
         self.assertEqual(merged, candidate)
 
 
+class TestLyricsAligner(unittest.TestCase):
+    def test_parse_lyrics_accepts_lrc(self):
+        from lrcgen.lyrics_aligner import parse_lyrics_text
+
+        text = """
+[ti:Song]
+[ar:Someone]
+[00:01.00]第一句
+[00:02.00]第二句
+""".strip()
+
+        self.assertEqual(parse_lyrics_text(text), ["第一句", "第二句"])
+
+    def test_align_out_of_order(self):
+        from lrcgen.lyrics_aligner import align_transcript_lines
+
+        transcript = ["第二句", "第一句"]
+        lyrics = "第一句\n第二句\n"
+        aligned, stats = align_transcript_lines(transcript, lyrics, min_score=0.8)
+        self.assertEqual(aligned, ["第二句", "第一句"])
+        self.assertEqual(stats.matched, 2)
+
+    def test_align_can_cut_segments(self):
+        from lrcgen.lyrics_aligner import align_transcript_lines
+
+        transcript = ["第二句"]
+        lyrics = "第一句，第二句，第三句\n"
+        aligned, stats = align_transcript_lines(transcript, lyrics, min_score=0.8)
+        self.assertEqual(aligned, ["第二句"])
+        self.assertEqual(stats.matched, 1)
+
+
 if __name__ == "__main__":
     unittest.main()

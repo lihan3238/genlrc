@@ -21,6 +21,14 @@ def main():
     parser.add_argument("--online", action="store_true", help="强制联网纠错")
     parser.add_argument("--model", default="medium", help="Whisper model (e.g. tiny/base/small/medium/large)")
     parser.add_argument("--language", default="zh", help="Whisper language code (default: zh)")
+    parser.add_argument(
+        "--lyrics-file",
+        help="完整歌词文件（txt 或 lrc 均可；顺序可乱）。启用后将从歌词中选取/截选每行内容。",
+    )
+    parser.add_argument(
+        "--lyrics",
+        help="直接传入完整歌词文本（不方便写文件时使用）。",
+    )
     args = parser.parse_args()
 
     input_path = args.audio or args.input
@@ -34,6 +42,9 @@ def main():
 
     if args.offline and args.online:
         parser.error("--offline and --online are mutually exclusive")
+
+    if args.lyrics and args.lyrics_file:
+        parser.error("--lyrics and --lyrics-file are mutually exclusive")
 
     if args.offline:
         mode = "offline"
@@ -56,6 +67,9 @@ def main():
             )
 
     is_input_dir = os.path.isdir(input_path)
+
+    if is_input_dir and (args.lyrics or args.lyrics_file):
+        parser.error("--lyrics/--lyrics-file currently supports single-file mode only")
     if is_input_dir:
         os.makedirs(output_path, exist_ok=True)
     else:
@@ -75,6 +89,19 @@ def main():
     recognizer = WhisperRecognizer(model_name=args.model, language=args.language)
 
     from .api import generate_lrc, generate_lrc_batch
+
+    lyrics_text = None
+    if args.lyrics_file:
+        try:
+            with open(args.lyrics_file, "r", encoding="utf-8") as f:
+                lyrics_text = f.read()
+        except FileNotFoundError:
+            parser.error(f"lyrics file not found: {args.lyrics_file}")
+    elif args.lyrics:
+        lyrics_text = args.lyrics
+
+    if lyrics_text and mode == "online":
+        print("[lrcgen] note: lyrics mode enabled; skipping LLM correction", file=sys.stderr)
 
     async def runner():
         if is_input_dir:
@@ -113,10 +140,16 @@ def main():
             input_path,
             out_path,
             mode=mode,
+            lyrics_text=lyrics_text,
             recognizer=recognizer,
             model_name=args.model,
             language=args.language,
         )
+        if getattr(r, "used_lyrics", False):
+            print(
+                f"[lrcgen] lyrics aligned: {getattr(r, 'lyrics_matched', 0)}/{r.line_count}",
+                file=sys.stderr,
+            )
         if r.used_llm:
             print(f"[lrcgen] LLM corrected: {os.path.basename(r.audio_path)}", file=sys.stderr)
         print(f"[lrcgen] wrote: {r.out_path}", file=sys.stderr)

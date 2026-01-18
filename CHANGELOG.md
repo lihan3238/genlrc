@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.4
+
+- Adds lyrics-guided generation: pass full lyrics and the generator will pick/cut each line from the canonical lyrics instead of relying on LLM correction.
+- Adds CLI flags `--lyrics-file/--lyrics` (single-file mode).
+
 ## 0.1.3
 
 - Makes `openai` / OpenCC optional via extras: `lrcgen[online]`, `lrcgen[opencc]`, `lrcgen[full]`.
