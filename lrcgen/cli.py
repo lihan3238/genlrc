@@ -8,6 +8,9 @@ AUDIO_EXTS = (".mp3", ".wav", ".flac", ".m4a", ".ogg")
 
 def main():
     parser = argparse.ArgumentParser("lrcgen")
+    from . import __version__
+
+    parser.add_argument("--version", action="version", version=f"lrcgen {__version__}")
     # Back-compat positional args (older usage: lrcgen input_dir output_dir)
     parser.add_argument("input", nargs="?", help="音频文件或目录（兼容旧版：目录）")
     parser.add_argument("output", nargs="?", help="输出文件或目录（兼容旧版：目录）")
@@ -16,6 +19,8 @@ def main():
     parser.add_argument("--output", dest="out", help="输出文件或目录")
     parser.add_argument("--offline", action="store_true", help="完全离线")
     parser.add_argument("--online", action="store_true", help="强制联网纠错")
+    parser.add_argument("--model", default="medium", help="Whisper model (e.g. tiny/base/small/medium/large)")
+    parser.add_argument("--language", default="zh", help="Whisper language code (default: zh)")
     args = parser.parse_args()
 
     input_path = args.audio or args.input
@@ -36,6 +41,11 @@ def main():
 
     if mode == "online":
         from .config import OPENAI_API_KEY
+
+        try:
+            import openai  # noqa: F401
+        except ModuleNotFoundError:
+            parser.error("--online requires dependency 'openai'. Install with: pip install openai")
 
         if not OPENAI_API_KEY:
             parser.error(
@@ -59,45 +69,25 @@ def main():
             )
         raise
 
-    async def process_one(recognizer, audio_path, out_path, mode):
-        from .utils import format_time
+    recognizer = WhisperRecognizer(model_name=args.model, language=args.language)
 
-        times, lines = recognizer.transcribe(audio_path)
-
-        use_llm = False
-        if mode == "online":
-            use_llm = True
-        elif mode == "auto":
-            from .corrector import needs_llm_fix
-
-            use_llm = needs_llm_fix(lines)
-
-        if use_llm:
-            from .corrector import llm_fix
-
-            print(f"[lrcgen] LLM correcting: {os.path.basename(audio_path)}", file=sys.stderr)
-            lines = await llm_fix(lines)
-            print(f"[lrcgen] LLM correction done: {os.path.basename(audio_path)}", file=sys.stderr)
-
-        title = os.path.splitext(os.path.basename(audio_path))[0]
-
-        with open(out_path, "w", encoding="utf-8") as f:
-            f.write(f"[ti:{title}]\n[ar:Unknown]\n[al:Unknown]\n\n")
-            for t, l in zip(times, lines):
-                f.write(f"{format_time(t)}{l}\n")
-
-    recognizer = WhisperRecognizer()
+    from .api import generate_lrc, generate_lrc_batch
 
     async def runner():
         if is_input_dir:
-            for f in os.listdir(input_path):
-                if f.lower().endswith(AUDIO_EXTS):
-                    in_path = os.path.join(input_path, f)
-                    out_path = os.path.join(
-                        output_path,
-                        os.path.splitext(f)[0] + ".lrc",
+            results = await generate_lrc_batch(
+                input_path,
+                output_path,
+                mode=mode,
+                recognizer=recognizer,
+            )
+            for r in results:
+                if r.used_llm:
+                    print(
+                        f"[lrcgen] LLM corrected: {os.path.basename(r.audio_path)}",
+                        file=sys.stderr,
                     )
-                    await process_one(recognizer, in_path, out_path, mode)
+                print(f"[lrcgen] wrote: {r.out_path}", file=sys.stderr)
             return
 
         # Single file mode
@@ -116,8 +106,17 @@ def main():
             if not out_path.lower().endswith(".lrc"):
                 out_path = out_path + ".lrc"
 
-        await process_one(recognizer, input_path, out_path, mode)
-        print(f"[lrcgen] wrote: {out_path}", file=sys.stderr)
+        r = await generate_lrc(
+            input_path,
+            out_path,
+            mode=mode,
+            recognizer=recognizer,
+            model_name=args.model,
+            language=args.language,
+        )
+        if r.used_llm:
+            print(f"[lrcgen] LLM corrected: {os.path.basename(r.audio_path)}", file=sys.stderr)
+        print(f"[lrcgen] wrote: {r.out_path}", file=sys.stderr)
 
     asyncio.run(runner())
 

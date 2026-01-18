@@ -1,7 +1,11 @@
 import re
-from opencc import OpenCC
 
-cc = OpenCC("t2s")
+try:
+    from opencc import OpenCC
+
+    _cc = OpenCC("t2s")
+except ModuleNotFoundError:  # optional dependency
+    _cc = None
 
 
 def format_time(seconds: float) -> str:
@@ -14,7 +18,8 @@ def basic_clean(text: str) -> str:
     """
     繁转简 + 基础清洗
     """
-    text = cc.convert(text)
+    if _cc:
+        text = _cc.convert(text)
     text = re.sub(r"[，。！？、；：]", " ", text)
     text = re.sub(r"\s+", " ", text)
     return text.strip()

@@ -1,18 +1,30 @@
 # Release Process (PyPI)
 
-This repo publishes to **PyPI** via GitHub Actions when you push a version tag like `v0.1.1`.
+This repo publishes to **PyPI** via GitHub Actions when you push a version tag like `v0.1.2`.
 
 ## One-time setup
 
 1) Create a PyPI account (https://pypi.org).
 
-2) Create a PyPI API token:
-- PyPI → Account settings → API tokens → Add API token
+2) Bind PyPI Trusted Publisher (recommended)
 
-3) Add the token to GitHub Actions secrets:
-- Repo → Settings → Secrets and variables → Actions → New repository secret
-- Name: `PYPI_API_TOKEN`
-- Value: your PyPI token (`pypi-...`)
+This repo uses **PyPI Trusted Publishing (OIDC)** in GitHub Actions, so you don’t need to store a PyPI token in GitHub.
+
+In PyPI:
+
+- Go to your project page (Manage)
+- Find “Publishing / Trusted publishers” → Add trusted publisher → GitHub Actions
+- Fill:
+	- Owner: `lihan3238`
+	- Repository: `genlrc`
+	- Workflow: `publish.yml` (path: `.github/workflows/publish.yml`)
+
+3) (Fallback only) Token-based publishing
+
+If you choose not to use Trusted Publishing, you can publish with a token instead:
+
+- Create a PyPI API token: PyPI → Account settings → API tokens → Add API token
+- Add it to GitHub Actions secrets as `PYPI_API_TOKEN`
 
 ## Every release
 
@@ -25,9 +37,18 @@ This repo publishes to **PyPI** via GitHub Actions when you push a version tag l
 - Edit `lrcgen/__init__.py` → `__version__`
 
 3) Quick local sanity (optional but recommended)
-- `python -m compileall -q lrcgen`
-- `python -m build`
-- `python -m twine check dist/*`
+
+Recommended (clean build artifacts first so you don’t accidentally upload old files):
+
+- Clean (cross-platform): `python tools/clean.py`
+- Compile: `python -m compileall -q lrcgen`
+- Tests: `python -m unittest -q test.test`
+- Build: `python -m build`
+- Check: `python -m twine check dist/*`
+
+Manual clean commands (if you don’t want the helper script):
+- WSL/macOS/Linux: `rm -rf dist build *.egg-info`
+- PowerShell: `Remove-Item -Recurse -Force dist, build, *.egg-info -ErrorAction SilentlyContinue`
 
 4) Commit the version bump
 - `git add pyproject.toml lrcgen/__init__.py`
@@ -55,6 +76,7 @@ Notes:
 - TestPyPI → Account settings → API tokens → Add API token
 
 2) Build artifacts
+- `python tools/clean.py`
 - `python -m build`
 
 3) Upload to TestPyPI (one-off command with env vars)
@@ -73,5 +95,5 @@ If Twine still prompts `Enter your API token`, it usually means it did not read 
 
 ## Notes
 
-- The workflow verifies that the tag version (e.g. `v0.1.1`) matches `pyproject.toml` exactly.
+- The workflow verifies that the tag version (e.g. `v0.1.2`) matches `pyproject.toml` exactly.
 - Keep secrets out of the repo. Do not commit `.pypirc` with tokens.

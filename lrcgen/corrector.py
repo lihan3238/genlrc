@@ -5,7 +5,11 @@ import asyncio
 import sys
 import os
 from difflib import SequenceMatcher
-from openai import OpenAI
+
+try:
+    from openai import OpenAI
+except ModuleNotFoundError:  # optional dependency
+    OpenAI = None
 from .config import (
     OPENAI_API_KEY,
     OPENAI_BASE_URL,
@@ -15,7 +19,7 @@ from .config import (
 
 # ===== OpenAI Client =====
 client = None
-if OPENAI_API_KEY:
+if OpenAI and OPENAI_API_KEY:
     client = OpenAI(
         api_key=OPENAI_API_KEY,
         base_url=OPENAI_BASE_URL
@@ -125,15 +129,18 @@ def needs_llm_fix(lines: list[str]) -> bool:
     return False
 
 
-async def llm_fix(lines: list[str]) -> list[str]:
+async def llm_fix(lines: list[str], *, require: bool = False) -> list[str]:
     """
     二次纠正（失败自动回退）
     """
+    if not OpenAI:
+        if require:
+            raise RuntimeError("missing dependency 'openai'. Install with: pip install openai")
+        return lines
+
     if not client:
-        print(
-            "[lrcgen] LLM correction skipped: OPENAI_API_KEY not set.",
-            file=sys.stderr,
-        )
+        if require:
+            raise RuntimeError("OPENAI_API_KEY not set")
         return lines
 
     async with _semaphore:
