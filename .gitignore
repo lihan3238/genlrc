@@ -1,4 +1,6 @@
 .env
+output/
+input/
 
 # Python caches
 __pycache__/
