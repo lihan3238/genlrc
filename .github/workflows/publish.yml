@@ -25,6 +25,19 @@ jobs:
           python -m pip install -U pip
           python -m pip install -U build twine
 
+      - name: Verify tag matches package version
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION_FROM_TAG="${TAG#v}"
+          VERSION_FROM_PYPROJECT=$(python -c "import tomllib; d=tomllib.load(open('pyproject.toml','rb')); print(d['project']['version'])")
+          echo "Tag: ${VERSION_FROM_TAG}"
+          echo "pyproject.toml: ${VERSION_FROM_PYPROJECT}"
+          if [ "${VERSION_FROM_TAG}" != "${VERSION_FROM_PYPROJECT}" ]; then
+            echo "ERROR: tag version does not match pyproject.toml" >&2
+            exit 1
+          fi
+
       - name: Build sdist + wheel
         run: |
           python -m build
