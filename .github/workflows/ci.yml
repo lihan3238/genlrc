@@ -33,8 +33,26 @@ jobs:
           python -m compileall -q lrcgen
 
       - name: Verify version sync
+        shell: bash
         run: |
-          python -c "import re, pathlib;\ntry:\n    import tomllib\nexcept ModuleNotFoundError:\n    import tomli as tomllib\np=tomllib.load(open('pyproject.toml','rb')); v1=p['project']['version']; v2=re.search(r'__version__\s*=\s*\"([^\"]+)\"', pathlib.Path('lrcgen/__init__.py').read_text(encoding='utf-8')).group(1); assert v1==v2, (v1, v2); print('version ok', v1)"
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          try:
+            import tomllib  # py>=3.11
+          except ModuleNotFoundError:
+            import tomli as tomllib  # py<3.11
+
+          p = tomllib.load(open('pyproject.toml', 'rb'))
+          v1 = p['project']['version']
+          v2 = re.search(
+            r'__version__\s*=\s*"([^"]+)"',
+            Path('lrcgen/__init__.py').read_text(encoding='utf-8'),
+          ).group(1)
+          assert v1 == v2, (v1, v2)
+          print('version ok', v1)
+          PY
 
       - name: Build sdist + wheel
         run: |
